@@ -1,0 +1,33 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link rel="stylesheet" href="assets/fonts/fonts.css">
+<style>
+  html,body{margin:0;padding:0;background:#fff;overflow:hidden}
+  #stage{position:relative;width:3840px;height:2160px;overflow:hidden;background:#fff}
+  .quad{position:absolute;width:1920px;height:1080px;overflow:hidden;background:#fff}
+  #tl{left:0;top:0} #tr{left:1920px;top:0} #bl{left:0;top:1080px} #br{left:1920px;top:1080px}
+  /* ?only=xx renders one quadrant at origin */
+  body.only #stage{width:1920px;height:1080px} body.only .quad{display:none} body.only .quad.on{display:block;left:0 !important;top:0 !important}
+</style>
+</head><body>
+<div id="stage"><div class="quad" id="tl"></div><div class="quad" id="tr"></div><div class="quad" id="bl"></div><div class="quad" id="br"></div></div>
+<script>window.SCENES={};</script>
+<script src="scenes/common.js"></script>
+<script src="scenes/tl.js"></script>
+<script src="scenes/tr.js"></script>
+<script src="scenes/bl.js"></script>
+<script src="scenes/br.js"></script>
+<script>
+const params=new URLSearchParams(location.search);const only=params.get('only');
+if(only){document.body.classList.add('only');document.getElementById(only).classList.add('on');}
+window.__ready=(async()=>{
+  for(const q of ['tl','tr','bl','br']){const s=window.SCENES[q];if(s&&s.init&&(!only||only===q)) await s.init(document.getElementById(q));}
+  await document.fonts.ready;
+  await Promise.all([...document.images].map(i=>i.decode().catch(()=>{})));
+  return true;
+})();
+// Deterministic: all motion must be a pure function of t (seconds).
+window.renderFrame=(t)=>{for(const q of ['tl','tr','bl','br']){if(only&&only!==q)continue;const s=window.SCENES[q];if(s&&s.render)s.render(document.getElementById(q),t);}};
+const tq=params.get('t');if(tq!==null)window.__ready.then(()=>window.renderFrame(parseFloat(tq)));
+</script>
+</body></html>

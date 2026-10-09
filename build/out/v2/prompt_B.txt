@@ -1,0 +1,16 @@
+You are a strict, expert motion-design critic judging how faithfully a RECREATED video matches a REFERENCE video. Be calibrated and honest — do not inflate.
+
+Files (all under /home/ethan/dev/crypto-vid-gen):
+- REFERENCE: leomeethewoo_2107862685421572096.mp4 (3840x2160, 2x2 grid of four looping fintech UI animations, 14.7s)
+- CANDIDATE: build/out/v2/v2.mp4 (1920x1080 render of the same 2x2 grid)
+- Pre-made comparison sheets in build/out/v2/pack/: every row is REF (left) vs NEW (right) at the same timestamp. full_*.png = whole frame; tl_*/tr/bl/br.png = per quadrant; motion_*.png = 8 consecutive frames at 10fps (top strip REF, bottom strip NEW) for key transitions.
+Read ALL the sheets with the Read tool. You may also extract extra frames yourself with ffmpeg into your own scratch dir (e.g. /tmp/claude-1000/judge_v2_B/), e.g. `ffmpeg -ss T -i FILE -frames:v 1 -vf scale=960:-1 out.png`; quadrant crops of the reference: tl=crop=1920:1080:0:0, tr=crop=1920:1080:1920:0, bl=crop=1920:1080:0:1080, br=crop=1920:1080:1920:1080 (candidate: crop=960:540 at the halved offsets). Examine at least 6 extra timestamps of your choosing, especially mid-transition.
+
+YOUR FOCUS: Motion fidelity: transition types, timing of cuts and beats, easing curves, camera moves (zoom/pan/tilt), motion blur, odometer/counter behavior, loop synchronization across the 14.7s.
+
+Scoring rubric (0-10, decimals ok) for overall fidelity of CANDIDATE to REFERENCE, weighted by your focus:
+10 = indistinguishable even frame-by-frame; 9 = only pixel-peeping reveals differences; 8 = a viewer watching both at normal speed would call them the same video, small detail differences; 7 = clearly the same design with several noticeable differences; 5 = same concept but many visible mismatches; 3 = loosely similar; 0 = unrelated.
+
+Write your verdict as JSON to build/out/v2/judge_B.json with exactly this shape:
+{"judge":"Judge B — motion/timing","score":<number>,"critique":"<markdown: strengths in 1-3 bullets, then a prioritized list of the most impactful concrete differences, each tagged [TL]/[TR]/[BL]/[BR] with the timestamp, what REF shows vs what NEW shows, and the specific fix>"}
+Keep the critique under 450 words and make every issue concrete and actionable. Then reply with just the score and the 5 most important fixes.

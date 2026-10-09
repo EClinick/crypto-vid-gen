@@ -1,0 +1,5 @@
+Run ONCE in an ADMIN PowerShell on Windows (Wi-Fi LAN IP 192.168.1.37), then open http://192.168.1.37:8765 from phone on same wifi:
+
+netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=8765 connectaddress=172.27.38.182 connectport=8765; New-NetFirewallRule -DisplayName "vidtracker 8765" -Direction Inbound -Protocol TCP -LocalPort 8765 -Action Allow -Profile Private,Domain
+
+Note: WSL IP can change after wsl --shutdown/reboot; re-run the portproxy part with the new IP (hostname -I in WSL). To undo: netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=8765

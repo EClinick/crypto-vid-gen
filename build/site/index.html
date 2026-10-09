@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Replication Tracker</title>
+<style>
+:root{--bg:#0b0d12;--card:#141821;--card2:#1b2130;--line:#262d3d;--tx:#e6e9f0;--mut:#8b94a8;--acc:#6ea8ff;--ok:#4ade80;--bad:#f87171;--warn:#fbbf24}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:1200px;margin:0 auto;padding:16px}
+header{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+h1{font-size:20px;margin:0}h2{font-size:15px;margin:0 0 10px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.mut{color:var(--mut)}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:16px}
+#live{font-size:12px;color:var(--mut)}#live:before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-right:6px}
+#live.off:before{background:var(--bad)}
+svg text{fill:var(--mut);font-size:11px}
+.stage{position:relative;background:#000;border-radius:8px;overflow:hidden;aspect-ratio:16/9}
+.sbs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.sbs .stage{position:relative}
+video{width:100%;height:100%;display:block;background:#000;object-fit:contain}
+.lbl{position:absolute;left:8px;top:8px;background:#000a;padding:2px 8px;border-radius:6px;font-size:12px;z-index:3;pointer-events:none}
+.ovl{position:relative;aspect-ratio:16/9;background:#000;border-radius:8px;overflow:hidden}
+.ovl video{position:absolute;inset:0}
+.ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+button,select{background:var(--card2);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;cursor:pointer}
+button.on{background:var(--acc);color:#04101f;border-color:var(--acc)}
+input[type=range]{accent-color:var(--acc);flex:1;min-width:120px}
+.time{font-variant-numeric:tabular-nums;color:var(--mut);font-size:13px;min-width:90px}
+.badge{display:inline-block;padding:2px 9px;border-radius:99px;font-weight:700;font-size:13px}
+.good{background:#4ade8022;color:var(--ok)}.badc{background:#f8717122;color:var(--bad)}.mid{background:#fbbf2422;color:var(--warn)}.pend{background:#6ea8ff22;color:var(--acc)}
+.ver{border:1px solid var(--line);border-radius:10px;margin-bottom:10px;background:var(--card2)}
+.vh{display:flex;gap:10px;align-items:center;padding:10px 12px;cursor:pointer;flex-wrap:wrap}
+.vh b{font-size:16px}.vh .sp{flex:1}
+.vb{display:none;padding:0 12px 12px}.ver.open .vb{display:block}
+.judge{border-top:1px solid var(--line);padding:8px 0}
+.judge summary{cursor:pointer;display:flex;gap:10px;align-items:center}
+.judge .md{margin-top:6px;color:#cfd5e3;font-size:14px}
+.md p{margin:.4em 0}.md code{background:#0006;padding:1px 5px;border-radius:4px}.md pre{background:#0008;padding:8px;border-radius:6px;overflow:auto}.md ul{padding-left:20px;margin:.3em 0}
+.sheets{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:8px}
+.sheets img{width:100%;border-radius:6px;border:1px solid var(--line);cursor:zoom-in}
+#lb{position:fixed;inset:0;background:#000d;display:none;align-items:center;justify-content:center;z-index:99;overflow:auto;cursor:zoom-out}
+#lb img{max-width:96vw;max-height:96vh}
+.notes{white-space:pre-wrap;color:#cfd5e3;font-size:14px;margin:8px 0}
+.hero-meta{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.dls{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+a.btn{display:inline-flex;flex-direction:column;background:var(--card2);color:var(--tx);border:1px solid var(--acc);border-radius:8px;padding:8px 12px;text-decoration:none;font-weight:600}
+a.btn small{font-weight:400;color:var(--mut);font-size:12px}a.btn.sm{border-color:var(--line);font-weight:400;font-size:13px;padding:5px 10px}
+header a{color:var(--acc);font-size:14px}
+@media(max-width:700px){.sbs{grid-template-columns:1fr}.wrap{padding:12px}}
+</style></head><body>
+<div class="wrap">
+<header><h1>Video replication tracker</h1><span><a href="ref/reference.mp4" download="reference.mp4">Download reference video</a> &nbsp; <span id="live">connecting</span></span></header>
+<div class="card"><h2>Score over iterations</h2><div id="chart"></div></div>
+<div class="card" id="hero"><div class="mut">No versions yet. Waiting for the first iteration...</div></div>
+<div class="card"><h2>Versions</h2><div id="list"></div></div>
+</div>
+<div id="lb"><img alt=""></div>
+<script>
+const TARGET=8.0, REF="ref/reference.mp4";
+let DATA=[], sig="", sel=null, mode="sbs", loop=true, openSet=new Set(), openJ=new Set();
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function md(t){
+  let h=esc(t||"");
+  h=h.replace(/```([\s\S]*?)```/g,(_,c)=>"<pre>"+c+"</pre>");
+  h=h.replace(/`([^`\n]+)`/g,"<code>$1</code>").replace(/\*\*([^*\n]+)\*\*/g,"<b>$1</b>").replace(/(^|[^*])\*([^*\n]+)\*/g,"$1<i>$2</i>");
+  h=h.replace(/^#{1,6}\s+(.+)$/gm,"<b>$1</b>");
+  h=h.replace(/(^[-*] .+(\n|$))+/gm,m=>"<ul>"+m.trim().split("\n").map(l=>"<li>"+l.replace(/^[-*] /,"")+"</li>").join("")+"</ul>");
+  return h.split(/\n{2,}/).map(p=>/^<(ul|pre)/.test(p.trim())?p:"<p>"+p.replace(/\n/g,"<br>")+"</p>").join("");
+}
+const mb=n=>(n/1048576).toFixed(1)+" MB";
+function dl(d){
+  const o=d.download,w=d.web,b=[];
+  if(o)b.push(`<a class="btn" href="${esc(o.path)}" download="${esc(o.name)}">Download MP4 (original)<small>${esc(o.name)} - ${mb(o.size)} - ${o.width}x${o.height}</small></a>`);
+  if(d.sidebyside){const x=d.sidebyside;b.push(`<a class="btn" href="${esc(x.path)}" download="${esc(x.name)}">Download side-by-side (original | ${esc(d.version)})<small>${esc(x.name)} - ${mb(x.size)} - ${x.width}x${x.height}</small></a>`)}
+  if(d.video)b.push(`<a class="btn" href="${esc(d.video)}" download="${esc(d.version)}_1080p.mp4">Download web 1080p<small>${w?mb(w.size)+" - "+w.width+"x"+w.height:"H.264 30fps"}</small></a>`);
+  (d.sheets||[]).forEach((s,i)=>{const n=s.split("?")[0].split("/").pop();b.push(`<a class="btn sm" href="${esc(s)}" download="${esc(n)}">Sheet: ${esc(n.replace(/^sheet_\d+_/,"").replace(/\.\w+$/,""))}</a>`)});
+  return b.length?`<div class="dls">${b.join("")}</div>`:"";
+}
+const cls=s=>s==null?"pend":s>=TARGET?"good":s>=6?"mid":"badc";
+const badge=s=>`<span class="badge ${cls(s)}">${s==null?"judging":(+s).toFixed(1)}</span>`;
+
+function chart(){
+  const pts=DATA.filter(d=>d.avg!=null);const W=800,H=220,L=34,R=12,T=10,B=24;
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="score chart">`;
+  for(let y=0;y<=10;y+=2){const py=T+(H-T-B)*(1-y/10);s+=`<line x1="${L}" x2="${W-R}" y1="${py}" y2="${py}" stroke="#262d3d"/><text x="${L-6}" y="${py+4}" text-anchor="end">${y}</text>`}
+  const ty=T+(H-T-B)*(1-TARGET/10);
+  s+=`<line x1="${L}" x2="${W-R}" y1="${ty}" y2="${ty}" stroke="#4ade80" stroke-dasharray="6 4"/><text x="${W-R}" y="${ty-4}" text-anchor="end" style="fill:#4ade80">target ${TARGET}</text>`;
+  const n=DATA.length,px=i=>n<2?(L+W-R)/2:L+(W-L-R)*i/(n-1),py=v=>T+(H-T-B)*(1-v/10);
+  DATA.forEach((d,i)=>{s+=`<text x="${px(i)}" y="${H-6}" text-anchor="middle">${esc(d.version)}</text>`});
+  const p=DATA.map((d,i)=>d.avg!=null?[px(i),py(d.avg),d]:null).filter(Boolean);
+  if(p.length>1)s+=`<polyline fill="none" stroke="#6ea8ff" stroke-width="2.5" points="${p.map(q=>q[0]+","+q[1]).join(" ")}"/>`;
+  p.forEach(q=>s+=`<circle cx="${q[0]}" cy="${q[1]}" r="5" fill="${q[2].avg>=TARGET?"#4ade80":"#6ea8ff"}"><title>${esc(q[2].version)}: ${q[2].avg}</title></circle><text x="${q[0]}" y="${q[1]-9}" text-anchor="middle" style="fill:#e6e9f0">${q[2].avg}</text>`);
+  $("#chart").innerHTML=s+"</svg>";
+}
+
+/* ---- synced player ---- */
+let vr,vc,vr2,vc2,raf;
+function curr(){return DATA.find(d=>d.version===sel)||DATA[DATA.length-1]}
+function heroHTML(){
+  const d=curr();if(!d){$("#hero").innerHTML='<div class="mut">No versions yet. Waiting for the first iteration...</div>';return}
+  const vs=DATA.filter(x=>x.video);
+  $("#hero").innerHTML=`<h2>Compare</h2>
+  <div class="hero-meta"><select id="vsel">${DATA.map(x=>`<option value="${esc(x.version)}" ${x.version===d.version?"selected":""}>${esc(x.version)}${x.avg!=null?" ("+x.avg+")":""}</option>`).join("")}</select>${badge(d.avg)}
+  <span class="mut">${esc(d.timestamp||"")}</span></div>
+  ${d.video?`<div id="pl">
+  <div id="m-sbs" class="sbs"><div class="stage"><span class="lbl">Reference</span><video class="r" src="${REF}" playsinline preload="auto"></video></div>
+  <div class="stage"><span class="lbl">${esc(d.version)}</span><video class="c" src="${d.video}" playsinline muted preload="auto"></video></div></div>
+  <div id="m-ovl" class="ovl" style="display:none"><video class="r" src="${REF}" playsinline preload="auto"></video><video class="c" src="${d.video}" playsinline muted preload="auto"></video></div>
+  <div class="ctl"><button id="pp">Play</button><input type="range" id="scr" min="0" max="1000" value="0"><span class="time" id="tm">0:00 / 0:00</span></div>
+  <div class="ctl"><button id="lp" class="${loop?"on":""}">Loop</button>
+   <button data-m="sbs">Side by side</button><button data-m="wipe">Wipe</button><button data-m="diff">Difference</button>
+   <input type="range" id="wp" min="0" max="100" value="50" style="display:none"><button id="mu">Unmute (version audio)</button></div></div>`
+  :`<div class="mut">Video for ${esc(d.version)} not available yet.</div>`}
+  ${dl(d)}${d.notes?`<div class="notes">${esc(d.notes)}</div>`:""}`;
+  $("#vsel").onchange=e=>{sel=e.target.value;sig="";heroHTML();bind()};
+  bind();
+}
+function vids(m){return [...document.querySelectorAll(`#pl ${m?"#m-"+m+" ":""}video.r, #pl video.c`)]}
+function bind(){
+  const pl=$("#pl");if(!pl)return;
+  const R=[...pl.querySelectorAll("video.r")],C=[...pl.querySelectorAll("video.c")];
+  const active=()=>mode==="sbs"?0:1;
+  const r=()=>R[active()],c=()=>C[active()];
+  const all=[...R,...C];
+  function fmt(t){t=t||0;return Math.floor(t/60)+":"+String(Math.floor(t%60)).padStart(2,"0")}
+  function setMode(m){mode=m;pl.querySelector("#m-sbs").style.display=m==="sbs"?"":"none";pl.querySelector("#m-ovl").style.display=m==="sbs"?"none":"";
+    const was=!r().paused;const t=[R[0],R[1]].find(v=>v.currentTime>0)||R[0];
+    all.forEach(v=>{v.pause()});
+    const cur=lastT;R.concat(C).forEach(v=>v.currentTime=cur);
+    C[1].style.mixBlendMode=m==="diff"?"difference":"normal";
+    C[1].style.clipPath=m==="wipe"?`inset(0 ${100-pl.querySelector("#wp").value}% 0 0)`:"none";
+    pl.querySelector("#wp").style.display=m==="wipe"?"":"none";
+    pl.querySelectorAll("[data-m]").forEach(b=>b.classList.toggle("on",b.dataset.m===m));
+    if(was)play()}
+  let lastT=0,playing=false;
+  R.concat(C).forEach(v=>{v.muted=true});
+  function play(){playing=true;pl.querySelector("#pp").textContent="Pause";c().muted=pl.querySelector("#mu").dataset.m==="1";
+    [r(),c()].forEach(v=>v.play().catch(()=>{}))}
+  function pause(){playing=false;pl.querySelector("#pp").textContent="Play";all.forEach(v=>v.pause())}
+  function seek(t){lastT=t;all.forEach(v=>{try{v.currentTime=t}catch(e){}})}
+  const dur=()=>r().duration||0;
+  function tick(){
+    const rv=r(),cv=c();
+    if(playing&&rv.readyState>1){
+      lastT=rv.currentTime;
+      if(cv.readyState>1&&Math.abs(cv.currentTime-rv.currentTime)>0.08)cv.currentTime=rv.currentTime;
+      if(rv.ended||(rv.duration&&rv.currentTime>=rv.duration-0.05)){if(loop){seek(0);play()}else{pause()}}
+    }
+    if(!pl.querySelector("#scr").matches(":active")&&dur())pl.querySelector("#scr").value=lastT/dur()*1000;
+    pl.querySelector("#tm").textContent=fmt(lastT)+" / "+fmt(dur());
+    raf=requestAnimationFrame(tick)}
+  cancelAnimationFrame(raf);
+  pl.querySelector("#pp").onclick=()=>playing?pause():play();
+  pl.querySelector("#scr").oninput=e=>seek(e.target.value/1000*dur());
+  pl.querySelector("#lp").onclick=e=>{loop=!loop;e.target.classList.toggle("on",loop)};
+  pl.querySelector("#mu").onclick=e=>{const m=e.target.dataset.m==="1";e.target.dataset.m=m?"0":"1";e.target.textContent=m?"Mute":"Mute (version audio)";c().muted=!m};
+  pl.querySelector("#mu").dataset.m="1";pl.querySelector("#mu").textContent="Unmute (version audio)";
+  pl.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>setMode(b.dataset.m));
+  pl.querySelector("#wp").oninput=e=>{C[1].style.clipPath=`inset(0 ${100-e.target.value}% 0 0)`};
+  setMode(mode);pause();tick();
+}
+
+function listHTML(){
+  $("#list").innerHTML=DATA.slice().reverse().map(d=>{
+    const o=openSet.has(d.version);
+    return `<div class="ver ${o?"open":""}" data-v="${esc(d.version)}"><div class="vh"><b>${esc(d.version)}</b>${badge(d.avg)}
+    <span class="mut">${(d.judges||[]).map(j=>(+j.score).toFixed(1)).join(" / ")}</span><span class="sp"></span><span class="mut">${esc((d.timestamp||"").replace("T"," ").slice(0,16))}</span></div>
+    <div class="vb">${d.notes?`<div class="notes">${esc(d.notes)}</div>`:""}
+    ${(d.judges||[]).map((j,i)=>`<details class="judge" data-k="${esc(d.version)}#${i}" ${openJ.has(d.version+"#"+i)?"open":""}><summary>${badge(j.score)}<span>${esc(j.judge)}</span></summary><div class="md">${md(j.critique)}</div></details>`).join("")||'<div class="mut">Awaiting judges...</div>'}
+    ${(d.sheets||[]).length?`<div class="sheets">${d.sheets.map(s=>`<img loading="lazy" src="${esc(s)}">`).join("")}</div>`:""}
+    ${dl(d)}<div style="margin-top:8px"><button data-cmp="${esc(d.version)}">Compare this version</button></div></div></div>`}).join("")||'<div class="mut">Nothing yet.</div>';
+}
+document.addEventListener("click",e=>{
+  const img=e.target.closest(".sheets img");if(img){$("#lb img").src=img.src;$("#lb").style.display="flex";return}
+  if(e.target.closest("#lb")){$("#lb").style.display="none";return}
+  const cb=e.target.closest("[data-cmp]");if(cb){sel=cb.dataset.cmp;heroHTML();scrollTo({top:0,behavior:"smooth"});return}
+  const vh=e.target.closest(".vh");if(vh){const v=vh.parentNode.dataset.v;openSet.has(v)?openSet.delete(v):openSet.add(v);vh.parentNode.classList.toggle("open")}
+});
+document.addEventListener("toggle",e=>{const k=e.target.dataset&&e.target.dataset.k;if(k)e.target.open?openJ.add(k):openJ.delete(k)},true);
+
+async function poll(){
+  try{
+    const r=await fetch("data.json?_="+Date.now(),{cache:"no-store"});const t=await r.text();
+    $("#live").className="";$("#live").textContent="live - updated "+new Date().toLocaleTimeString();
+    if(t!==sig){
+      const prevLatest=DATA.length?DATA[DATA.length-1].version:null;
+      const prev=JSON.parse(sig||"[]");sig=t;DATA=JSON.parse(t);
+      const heroSig=d=>d?JSON.stringify([d.version,d.video,d.avg,d.notes,d.download,d.sidebyside,d.sheets]):"";
+      const oldCur=sel?prev.find(x=>x.version===sel):prev[prev.length-1];
+      const newLatest=DATA.length?DATA[DATA.length-1].version:null;
+      if(sel===null||(prevLatest&&sel===prevLatest&&newLatest!==prevLatest&&false)){}
+      chart();listHTML();
+      const nc=curr();
+      if(!$("#pl")||heroSig(oldCur)!==heroSig(nc)||!DATA.length||!oldCur){const was=$("#pl")&&false;heroHTML()}
+    }
+  }catch(e){$("#live").className="off";$("#live").textContent="offline - retrying"}
+}
+poll();setInterval(poll,10000);
+</script></body></html>

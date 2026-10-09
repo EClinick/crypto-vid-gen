@@ -1,0 +1,2 @@
+Judge A: 7. [TR] 1.0-2.9s: wallet row matches; the avatar face (eyes/mouth) in NEW is darker and bigger; the row text is about 2% smaller. The confetti faces in REF have thinner features.
+Judge C: 7. [TR] 1.0-2.2s: REF fading bubbles are slightly more washed and larger; the address row sits about 20px left and the pill is a touch larger. Fix: shift the row left and enlarge the avatar.

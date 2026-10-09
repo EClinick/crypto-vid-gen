@@ -1,0 +1,2 @@
+const {chromium}=require('playwright-core');const os=require('os'),path=require('path');
+(async()=>{const b=await chromium.launch({executablePath:path.join(os.homedir(),'.cache/ms-playwright/chromium-1200/chrome-linux64/chrome')});const p=await b.newPage({viewport:{width:1900,height:800}});await p.goto('file://'+path.resolve(process.argv[2]));await p.evaluate(()=>document.fonts.ready);await p.waitForTimeout(300);await p.screenshot({path:process.argv[3],fullPage:true});await b.close();})();
