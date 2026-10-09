@@ -4,13 +4,15 @@ A frame-by-frame recreation of a 14.7 s 4K60 promo video, built as an HTML/JS sc
 
 ## Recreation (4K60)
 
-<video src="https://raw.githubusercontent.com/EClinick/crypto-vid-gen/main/crypto_recreation_4k60.mp4" controls muted width="100%"></video>
+_Animated previews below; click one to open the full-quality MP4 with audio._
+
+[![Recreation preview](media/recreation.webp)](crypto_recreation_4k60.mp4)
 
 [Download `crypto_recreation_4k60.mp4`](crypto_recreation_4k60.mp4)
 
 ## Reference
 
-<video src="https://raw.githubusercontent.com/EClinick/crypto-vid-gen/main/leomeethewoo_2107862685421572096.mp4" controls muted width="100%"></video>
+[![Reference preview](media/reference.webp)](leomeethewoo_2107862685421572096.mp4)
 
 [Download the reference video](leomeethewoo_2107862685421572096.mp4) · [Audio (mp3)](leomeethewoo_2107862685421572096.mp3)
 
